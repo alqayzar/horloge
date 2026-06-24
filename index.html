@@ -11,10 +11,23 @@
   <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xs">
 
     <!-- Header -->
-    <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center justify-between mb-4">
       <h1 class="text-xl font-bold text-slate-700">Quelle heure est-il&nbsp;?</h1>
       <button id="settingsBtn" title="Paramètres"
         class="text-slate-400 hover:text-slate-600 transition-colors text-lg leading-none">⚙</button>
+    </div>
+
+    <!-- Score -->
+    <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-2 mb-5">
+      <div class="text-center">
+        <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Score</div>
+        <div id="scoreDisplay" class="text-2xl font-bold text-slate-700">0</div>
+      </div>
+      <div class="w-px h-8 bg-slate-200"></div>
+      <div class="text-center">
+        <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Meilleur</div>
+        <div id="bestDisplay" class="text-2xl font-bold text-amber-500">0</div>
+      </div>
     </div>
 
     <!-- Horloge SVG -->
@@ -29,6 +42,10 @@
           stroke="#1e293b" stroke-width="7" stroke-linecap="round"/>
         <line id="minute-hand" x1="110" y1="110" x2="110" y2="110"
           stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+        <!-- Badge AM/PM -->
+        <rect id="ampm-bg" x="88" y="143" width="44" height="22" rx="11" fill="#e2e8f0"/>
+        <text id="ampm-label" x="110" y="154" text-anchor="middle" dominant-baseline="central"
+          font-size="12" font-weight="bold" font-family="system-ui, sans-serif" fill="#475569">AM</text>
         <!-- Centre -->
         <circle cx="110" cy="110" r="5" fill="#1e293b"/>
       </svg>
@@ -37,8 +54,8 @@
     <!-- Inputs heures / minutes -->
     <div class="flex items-end gap-3 justify-center mb-4">
       <div class="flex flex-col items-center gap-1">
-        <label class="text-xs font-medium text-slate-500">Heures</label>
-        <input id="inputHours" type="number" min="1" max="12"
+        <label class="text-xs font-medium text-slate-500">Heures (0–23)</label>
+        <input id="inputHours" type="number" min="0" max="23"
           class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-2
                  focus:outline-none focus:border-blue-400 transition-colors"
           placeholder="--" />
@@ -111,6 +128,13 @@
     let currentMinute = 0;
     let tolerance   = parseInt(localStorage.getItem('clockTolerance') ?? '3', 10);
     let hideNumbers = localStorage.getItem('clockHideNumbers') === 'true';
+    let score       = 0;
+    let bestScore   = parseInt(localStorage.getItem('clockBestScore') ?? '0', 10);
+
+    function updateScoreUI() {
+      document.getElementById('scoreDisplay').textContent = score;
+      document.getElementById('bestDisplay').textContent  = bestScore;
+    }
 
     // ── Utilitaires géométrie ───────────────────────────────────────────────
     function clockAngleToXY(angleDeg, radius) {
@@ -159,6 +183,14 @@
       }
     }
 
+    // ── Badge AM / PM ───────────────────────────────────────────────────────
+    function updateAmPm(h) {
+      const isPm = h >= 12;
+      document.getElementById('ampm-label').textContent = isPm ? 'PM' : 'AM';
+      document.getElementById('ampm-bg').setAttribute('fill', isPm ? '#fde68a' : '#bfdbfe');
+      document.getElementById('ampm-label').setAttribute('fill', isPm ? '#92400e' : '#1d4ed8');
+    }
+
     // ── Mise à jour des aiguilles ───────────────────────────────────────────
     function updateHands(h, m) {
       const hourAngle   = (h % 12 + m / 60) * 30;
@@ -172,11 +204,13 @@
 
       const mh = document.getElementById('minute-hand');
       mh.setAttribute('x2', mp.x); mh.setAttribute('y2', mp.y);
+
+      updateAmPm(h);
     }
 
     // ── Nouvelle heure aléatoire ────────────────────────────────────────────
     function newRound() {
-      currentHour   = Math.floor(Math.random() * 12) + 1;
+      currentHour   = Math.floor(Math.random() * 24);
       currentMinute = Math.floor(Math.random() * 60);
       updateHands(currentHour, currentMinute);
 
@@ -208,30 +242,44 @@
       const inputM = parseInt(rawM, 10);
 
       if (isNaN(inputH) || isNaN(inputM)) return;
-      if (inputH < 1 || inputH > 12)      return;
-      if (inputM < 0 || inputM > 59)      return;
+      if (inputH < 0 || inputH > 23) return;
+      if (inputM < 0 || inputM > 59) return;
 
-      // Différence en minutes sur un cadran 12h (720 min)
-      const correctTotal = (currentHour % 12) * 60 + currentMinute;
-      const inputTotal   = (inputH % 12)      * 60 + inputM;
+      // Différence en minutes sur 24h (1440 min), avec passage à minuit
+      const correctTotal = currentHour * 60 + currentMinute;
+      const inputTotal   = inputH      * 60 + inputM;
       let diff = Math.abs(correctTotal - inputTotal);
-      diff = Math.min(diff, 720 - diff);          // court chemin sur le cadran
+      diff = Math.min(diff, 1440 - diff);
 
       const correctStr =
-        `${currentHour}:${String(currentMinute).padStart(2, '0')}`;
+        `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
 
       const result = document.getElementById('result');
       result.classList.remove('hidden');
 
       if (diff === 0) {
+        score++;
+        if (score > bestScore) {
+          bestScore = score;
+          localStorage.setItem('clockBestScore', bestScore);
+        }
+        updateScoreUI();
         result.className =
           'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-green-100 text-green-700';
         result.textContent = '✓ Exact !';
       } else if (diff <= tolerance) {
+        score++;
+        if (score > bestScore) {
+          bestScore = score;
+          localStorage.setItem('clockBestScore', bestScore);
+        }
+        updateScoreUI();
         result.className =
           'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-yellow-100 text-yellow-700';
         result.textContent = `Presque ! Il était ${correctStr}`;
       } else {
+        score = 0;
+        updateScoreUI();
         result.className =
           'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-red-100 text-red-700';
         result.textContent = `Raté ! Il était ${correctStr}`;
@@ -299,6 +347,7 @@
     });
 
     // ── Init ────────────────────────────────────────────────────────────────
+    updateScoreUI();
     drawFace();
     newRound();
   </script>
