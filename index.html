@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lire l'heure</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+  <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xs">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-5">
+      <h1 class="text-xl font-bold text-slate-700">Quelle heure est-il&nbsp;?</h1>
+      <button id="settingsBtn" title="Paramètres"
+        class="text-slate-400 hover:text-slate-600 transition-colors text-lg leading-none">⚙</button>
+    </div>
+
+    <!-- Horloge SVG -->
+    <div class="flex justify-center mb-6">
+      <svg id="clock" width="220" height="220" viewBox="0 0 220 220">
+        <!-- Cadran -->
+        <circle cx="110" cy="110" r="105" fill="#f8fafc" stroke="#e2e8f0" stroke-width="4"/>
+        <!-- Marqueurs et chiffres (injectés par JS) -->
+        <g id="clock-marks"></g>
+        <!-- Aiguilles -->
+        <line id="hour-hand"   x1="110" y1="110" x2="110" y2="110"
+          stroke="#1e293b" stroke-width="7" stroke-linecap="round"/>
+        <line id="minute-hand" x1="110" y1="110" x2="110" y2="110"
+          stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+        <!-- Centre -->
+        <circle cx="110" cy="110" r="5" fill="#1e293b"/>
+      </svg>
+    </div>
+
+    <!-- Inputs heures / minutes -->
+    <div class="flex items-end gap-3 justify-center mb-4">
+      <div class="flex flex-col items-center gap-1">
+        <label class="text-xs font-medium text-slate-500">Heures</label>
+        <input id="inputHours" type="number" min="1" max="12"
+          class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-2
+                 focus:outline-none focus:border-blue-400 transition-colors"
+          placeholder="--" />
+      </div>
+      <span class="text-3xl font-bold text-slate-300 pb-2">:</span>
+      <div class="flex flex-col items-center gap-1">
+        <label class="text-xs font-medium text-slate-500">Minutes</label>
+        <input id="inputMinutes" type="number" min="0" max="59"
+          class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-2
+                 focus:outline-none focus:border-blue-400 transition-colors"
+          placeholder="--" />
+      </div>
+    </div>
+
+    <!-- Résultat -->
+    <div id="result" class="hidden text-center font-semibold rounded-xl p-3 mb-4 text-base"></div>
+
+    <!-- Boutons -->
+    <div class="flex gap-3">
+      <button id="validateBtn"
+        class="flex-1 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-semibold
+               py-3 rounded-xl transition-colors">
+        Valider
+      </button>
+      <button id="nextBtn"
+        class="hidden flex-1 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white
+               font-semibold py-3 rounded-xl transition-colors">
+        Suivant →
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Modal Paramètres -->
+  <div id="settingsModal"
+    class="hidden fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-10">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs">
+      <h2 class="text-lg font-bold text-slate-700 mb-4">Paramètres</h2>
+      <label class="block text-sm text-slate-600 mb-1">
+        Tolérance (minutes pour réponse en jaune)
+      </label>
+      <input id="toleranceInput" type="number" min="0" max="30"
+        class="w-full border-2 border-slate-200 rounded-xl p-2 text-center text-xl font-bold
+               focus:outline-none focus:border-blue-400 mb-4" />
+      <label class="flex items-center gap-3 cursor-pointer mb-5 select-none">
+        <div id="toggleTrack"
+          class="relative w-10 h-6 rounded-full transition-colors duration-200 bg-slate-200">
+          <div id="toggleThumb"
+            class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"></div>
+        </div>
+        <span class="text-sm text-slate-600">Masquer les chiffres</span>
+      </label>
+      <div class="flex gap-2">
+        <button id="saveSettings"
+          class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-xl font-semibold">
+          Sauvegarder
+        </button>
+        <button id="closeSettings"
+          class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl font-semibold">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── État ────────────────────────────────────────────────────────────────
+    const CX = 110, CY = 110;
+    let currentHour   = 12;
+    let currentMinute = 0;
+    let tolerance   = parseInt(localStorage.getItem('clockTolerance') ?? '3', 10);
+    let hideNumbers = localStorage.getItem('clockHideNumbers') === 'true';
+
+    // ── Utilitaires géométrie ───────────────────────────────────────────────
+    function clockAngleToXY(angleDeg, radius) {
+      const rad = (angleDeg - 90) * Math.PI / 180;
+      return { x: CX + Math.cos(rad) * radius, y: CY + Math.sin(rad) * radius };
+    }
+
+    // ── Dessin du cadran ────────────────────────────────────────────────────
+    function drawFace() {
+      const NS = 'http://www.w3.org/2000/svg';
+      const g  = document.getElementById('clock-marks');
+      g.innerHTML = '';
+
+      // Traits de minutes
+      for (let i = 0; i < 60; i++) {
+        const angle  = i * 6;
+        const isHour = i % 5 === 0;
+        const outer  = 100;
+        const inner  = isHour ? 88 : 95;
+        const p1 = clockAngleToXY(angle, inner);
+        const p2 = clockAngleToXY(angle, outer);
+        const line = document.createElementNS(NS, 'line');
+        line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
+        line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
+        line.setAttribute('stroke',       isHour ? '#94a3b8' : '#cbd5e1');
+        line.setAttribute('stroke-width', isHour ? '2.5'    : '1');
+        g.appendChild(line);
+      }
+
+      // Chiffres 1–12
+      if (hideNumbers) return;
+      for (let n = 1; n <= 12; n++) {
+        const angle = n * 30;
+        const pos   = clockAngleToXY(angle, 76);
+        const text  = document.createElementNS(NS, 'text');
+        text.setAttribute('x',                  pos.x);
+        text.setAttribute('y',                  pos.y);
+        text.setAttribute('text-anchor',         'middle');
+        text.setAttribute('dominant-baseline',   'central');
+        text.setAttribute('font-size',           '15');
+        text.setAttribute('font-weight',         'bold');
+        text.setAttribute('font-family',         'system-ui, sans-serif');
+        text.setAttribute('fill',                '#334155');
+        text.textContent = n;
+        g.appendChild(text);
+      }
+    }
+
+    // ── Mise à jour des aiguilles ───────────────────────────────────────────
+    function updateHands(h, m) {
+      const hourAngle   = (h % 12 + m / 60) * 30;
+      const minuteAngle = m * 6;
+
+      const hp = clockAngleToXY(hourAngle,   58);
+      const mp = clockAngleToXY(minuteAngle, 84);
+
+      const hh = document.getElementById('hour-hand');
+      hh.setAttribute('x2', hp.x); hh.setAttribute('y2', hp.y);
+
+      const mh = document.getElementById('minute-hand');
+      mh.setAttribute('x2', mp.x); mh.setAttribute('y2', mp.y);
+    }
+
+    // ── Nouvelle heure aléatoire ────────────────────────────────────────────
+    function newRound() {
+      currentHour   = Math.floor(Math.random() * 12) + 1;
+      currentMinute = Math.floor(Math.random() * 60);
+      updateHands(currentHour, currentMinute);
+
+      document.getElementById('inputHours').value   = '';
+      document.getElementById('inputMinutes').value = '';
+      document.getElementById('inputHours').disabled   = false;
+      document.getElementById('inputMinutes').disabled = false;
+      document.getElementById('inputHours').classList.remove('opacity-50');
+      document.getElementById('inputMinutes').classList.remove('opacity-50');
+
+      const result = document.getElementById('result');
+      result.className = 'hidden';
+      result.textContent = '';
+
+      document.getElementById('validateBtn').classList.remove('hidden');
+      document.getElementById('nextBtn').classList.add('hidden');
+
+      document.getElementById('inputHours').focus();
+    }
+
+    // ── Validation ──────────────────────────────────────────────────────────
+    function validate() {
+      const rawH = document.getElementById('inputHours').value.trim();
+      const rawM = document.getElementById('inputMinutes').value.trim();
+
+      if (rawH === '' || rawM === '') return;
+
+      const inputH = parseInt(rawH, 10);
+      const inputM = parseInt(rawM, 10);
+
+      if (isNaN(inputH) || isNaN(inputM)) return;
+      if (inputH < 1 || inputH > 12)      return;
+      if (inputM < 0 || inputM > 59)      return;
+
+      // Différence en minutes sur un cadran 12h (720 min)
+      const correctTotal = (currentHour % 12) * 60 + currentMinute;
+      const inputTotal   = (inputH % 12)      * 60 + inputM;
+      let diff = Math.abs(correctTotal - inputTotal);
+      diff = Math.min(diff, 720 - diff);          // court chemin sur le cadran
+
+      const correctStr =
+        `${currentHour}:${String(currentMinute).padStart(2, '0')}`;
+
+      const result = document.getElementById('result');
+      result.classList.remove('hidden');
+
+      if (diff === 0) {
+        result.className =
+          'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-green-100 text-green-700';
+        result.textContent = '✓ Exact !';
+      } else if (diff <= tolerance) {
+        result.className =
+          'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-yellow-100 text-yellow-700';
+        result.textContent = `Presque ! Il était ${correctStr}`;
+      } else {
+        result.className =
+          'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-red-100 text-red-700';
+        result.textContent = `Raté ! Il était ${correctStr}`;
+      }
+
+      document.getElementById('inputHours').disabled   = true;
+      document.getElementById('inputMinutes').disabled = true;
+      document.getElementById('inputHours').classList.add('opacity-50');
+      document.getElementById('inputMinutes').classList.add('opacity-50');
+      document.getElementById('validateBtn').classList.add('hidden');
+      document.getElementById('nextBtn').classList.remove('hidden');
+    }
+
+    // ── Événements ──────────────────────────────────────────────────────────
+    document.getElementById('validateBtn').addEventListener('click', validate);
+    document.getElementById('nextBtn').addEventListener('click', newRound);
+
+    ['inputHours', 'inputMinutes'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') validate();
+      });
+    });
+
+    function applyToggleUI() {
+      const track = document.getElementById('toggleTrack');
+      const thumb = document.getElementById('toggleThumb');
+      if (hideNumbers) {
+        track.classList.replace('bg-slate-200', 'bg-blue-500');
+        thumb.style.transform = 'translateX(16px)';
+      } else {
+        track.classList.replace('bg-blue-500', 'bg-slate-200');
+        thumb.style.transform = 'translateX(0)';
+      }
+    }
+
+    document.getElementById('toggleTrack').addEventListener('click', () => {
+      hideNumbers = !hideNumbers;
+      applyToggleUI();
+    });
+
+    document.getElementById('settingsBtn').addEventListener('click', () => {
+      document.getElementById('toleranceInput').value = tolerance;
+      applyToggleUI();
+      document.getElementById('settingsModal').classList.remove('hidden');
+    });
+
+    document.getElementById('closeSettings').addEventListener('click', () => {
+      document.getElementById('settingsModal').classList.add('hidden');
+    });
+
+    document.getElementById('settingsModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('settingsModal'))
+        document.getElementById('settingsModal').classList.add('hidden');
+    });
+
+    document.getElementById('saveSettings').addEventListener('click', () => {
+      const v = parseInt(document.getElementById('toleranceInput').value, 10);
+      if (!isNaN(v) && v >= 0) {
+        tolerance = v;
+        localStorage.setItem('clockTolerance', tolerance);
+      }
+      localStorage.setItem('clockHideNumbers', hideNumbers);
+      drawFace();
+      document.getElementById('settingsModal').classList.add('hidden');
+    });
+
+    // ── Init ────────────────────────────────────────────────────────────────
+    drawFace();
+    newRound();
+  </script>
+</body>
+</html>
