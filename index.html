@@ -4,84 +4,144 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#f1f5f9" />
+  <meta id="themeColor" name="theme-color" content="#f1f5f9" />
   <title>Lire l'heure</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
   <style>
-    /* Clavier numérique sans spinners */
+    /* CSS variables pour l'horloge SVG */
+    :root {
+      --clock-face:   #f8fafc;
+      --clock-stroke: #e2e8f0;
+      --clock-mark-h: #94a3b8;
+      --clock-mark-m: #cbd5e1;
+      --clock-num:    #334155;
+      --clock-hand-h: #1e293b;
+      --clock-hand-m: #64748b;
+      --clock-center: #1e293b;
+    }
+    .dark {
+      --clock-face:   #1e293b;
+      --clock-stroke: #334155;
+      --clock-mark-h: #64748b;
+      --clock-mark-m: #374151;
+      --clock-num:    #94a3b8;
+      --clock-hand-h: #f1f5f9;
+      --clock-hand-m: #94a3b8;
+      --clock-center: #f1f5f9;
+    }
+
+    /* Supprime les spinners des inputs number */
     input[type=number]::-webkit-outer-spin-button,
     input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
     input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
     /* Supprime le flash de tap sur iOS */
     button, label { -webkit-tap-highlight-color: transparent; }
-    /* Safe area pour l'encoche et la barre home iPhone */
+
+    /* Safe area iPhone (encoche + barre home) */
     body {
-      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
       padding-left:   env(safe-area-inset-left);
       padding-right:  env(safe-area-inset-right);
     }
+
+    /* Toggle switch */
+    #toggleTrack              { background-color: #e2e8f0; }
+    .dark #toggleTrack        { background-color: #4b5563; }
+    #toggleTrack.tog-on       { background-color: #3b82f6 !important; }
   </style>
 </head>
-<body class="bg-slate-100 min-h-[100dvh] flex flex-col items-center justify-center p-3 sm:p-4">
+<body class="bg-slate-100 dark:bg-slate-900 min-h-[100dvh] flex flex-col items-center justify-center p-3 sm:p-4 transition-colors duration-200">
 
-  <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 w-full max-w-sm">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 w-full max-w-sm transition-colors duration-200">
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
-      <h1 class="text-xl font-bold text-slate-700">Quelle heure est-il&nbsp;?</h1>
-      <button id="settingsBtn" title="Paramètres"
-        class="text-slate-400 hover:text-slate-600 transition-colors text-lg leading-none">⚙</button>
+      <h1 class="text-xl font-bold text-slate-700 dark:text-slate-100">Quelle heure est-il&nbsp;?</h1>
+      <div class="flex items-center gap-1">
+        <button id="darkBtn" title="Thème"
+          class="w-9 h-9 flex items-center justify-center rounded-lg text-lg
+                 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300
+                 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          🌙
+        </button>
+        <button id="settingsBtn" title="Paramètres"
+          class="w-9 h-9 flex items-center justify-center rounded-lg text-lg
+                 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300
+                 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          ⚙
+        </button>
+      </div>
     </div>
 
-    <!-- Score -->
-    <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-2 mb-5">
-      <div class="text-center">
-        <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Score</div>
-        <div id="scoreDisplay" class="text-2xl font-bold text-slate-700">0</div>
-      </div>
-      <div class="w-px h-8 bg-slate-200"></div>
-      <div class="text-center">
-        <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Meilleur</div>
-        <div id="bestDisplay" class="text-2xl font-bold text-amber-500">0</div>
+    <!-- Score + Temps -->
+    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl px-4 py-2.5 mb-5">
+      <div class="flex items-center justify-between gap-2">
+        <!-- Score / Meilleur -->
+        <div class="text-center flex-1 min-w-0">
+          <div class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">Score / record</div>
+          <div class="text-xl font-bold">
+            <span id="scoreDisplay" class="text-slate-700 dark:text-slate-100">0</span>
+            <span class="text-slate-300 dark:text-slate-600 mx-1">/</span>
+            <span id="bestDisplay" class="text-amber-500">0</span>
+          </div>
+        </div>
+        <!-- Séparateur vertical -->
+        <div class="w-px self-stretch bg-slate-200 dark:bg-slate-600"></div>
+        <!-- Moy. session / record -->
+        <div class="text-center flex-1 min-w-0">
+          <div class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">Moy. / record</div>
+          <div class="text-xl font-bold">
+            <span id="avgDisplay" class="text-slate-400 dark:text-slate-500">—</span>
+            <span class="text-slate-300 dark:text-slate-600 mx-1">/</span>
+            <span id="bestAvgDisplay" class="text-violet-500">—</span>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Horloge SVG -->
     <div class="flex justify-center mb-6">
       <svg id="clock" viewBox="0 0 220 220" class="w-full max-w-[260px]">
-        <!-- Cadran -->
-        <circle cx="110" cy="110" r="105" fill="#f8fafc" stroke="#e2e8f0" stroke-width="4"/>
-        <!-- Marqueurs et chiffres (injectés par JS) -->
+        <circle cx="110" cy="110" r="105" fill="var(--clock-face)" stroke="var(--clock-stroke)" stroke-width="4"/>
         <g id="clock-marks"></g>
-        <!-- Aiguilles -->
         <line id="hour-hand"   x1="110" y1="110" x2="110" y2="110"
-          stroke="#1e293b" stroke-width="7" stroke-linecap="round"/>
+          stroke="var(--clock-hand-h)" stroke-width="7" stroke-linecap="round"/>
         <line id="minute-hand" x1="110" y1="110" x2="110" y2="110"
-          stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
-        <!-- Badge AM/PM -->
+          stroke="var(--clock-hand-m)" stroke-width="4" stroke-linecap="round"/>
         <rect id="ampm-bg" x="88" y="143" width="44" height="22" rx="11" fill="#e2e8f0"/>
         <text id="ampm-label" x="110" y="154" text-anchor="middle" dominant-baseline="central"
           font-size="12" font-weight="bold" font-family="system-ui, sans-serif" fill="#475569">AM</text>
-        <!-- Centre -->
-        <circle cx="110" cy="110" r="5" fill="#1e293b"/>
+        <circle cx="110" cy="110" r="5" fill="var(--clock-center)"/>
       </svg>
     </div>
 
-    <!-- Inputs heures / minutes -->
+    <!-- Inputs -->
     <div class="flex items-end gap-3 justify-center mb-4">
       <div class="flex flex-col items-center gap-1">
-        <label class="text-xs font-medium text-slate-500">Heures (0–23)</label>
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Heures (0–23)</label>
         <input id="inputHours" type="number" min="0" max="23" inputmode="numeric"
-          class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-3
-                 focus:outline-none focus:border-blue-400 transition-colors"
+          class="w-20 text-center text-2xl font-bold rounded-xl p-3
+                 border-2 border-slate-200 dark:border-slate-600
+                 bg-white dark:bg-slate-700
+                 text-slate-800 dark:text-slate-100
+                 placeholder-slate-300 dark:placeholder-slate-600
+                 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500
+                 transition-colors"
           placeholder="--" />
       </div>
-      <span class="text-3xl font-bold text-slate-300 pb-2">:</span>
+      <span class="text-3xl font-bold text-slate-300 dark:text-slate-600 pb-2">:</span>
       <div class="flex flex-col items-center gap-1">
-        <label class="text-xs font-medium text-slate-500">Minutes</label>
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Minutes</label>
         <input id="inputMinutes" type="number" min="0" max="59" inputmode="numeric"
-          class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-3
-                 focus:outline-none focus:border-blue-400 transition-colors"
+          class="w-20 text-center text-2xl font-bold rounded-xl p-3
+                 border-2 border-slate-200 dark:border-slate-600
+                 bg-white dark:bg-slate-700
+                 text-slate-800 dark:text-slate-100
+                 placeholder-slate-300 dark:placeholder-slate-600
+                 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500
+                 transition-colors"
           placeholder="--" />
       </div>
     </div>
@@ -107,30 +167,34 @@
 
   <!-- Modal Paramètres -->
   <div id="settingsModal"
-    class="hidden fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-10">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs">
-      <h2 class="text-lg font-bold text-slate-700 mb-4">Paramètres</h2>
-      <label class="block text-sm text-slate-600 mb-1">
+    class="hidden fixed inset-0 bg-black/30 dark:bg-black/60 flex items-center justify-center p-4 z-10">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 w-full max-w-xs">
+      <h2 class="text-lg font-bold text-slate-700 dark:text-slate-100 mb-4">Paramètres</h2>
+      <label class="block text-sm text-slate-600 dark:text-slate-300 mb-1">
         Tolérance (minutes pour réponse en jaune)
       </label>
       <input id="toleranceInput" type="number" min="0" max="30" inputmode="numeric"
-        class="w-full border-2 border-slate-200 rounded-xl p-3 text-center text-xl font-bold
-               focus:outline-none focus:border-blue-400 mb-4" />
+        class="w-full rounded-xl p-3 text-center text-xl font-bold mb-4
+               border-2 border-slate-200 dark:border-slate-600
+               bg-white dark:bg-slate-700
+               text-slate-800 dark:text-slate-100
+               focus:outline-none focus:border-blue-400" />
       <label class="flex items-center gap-3 cursor-pointer mb-5 select-none">
         <div id="toggleTrack"
-          class="relative w-10 h-6 rounded-full transition-colors duration-200 bg-slate-200">
+          class="relative w-10 h-6 rounded-full transition-colors duration-200">
           <div id="toggleThumb"
             class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"></div>
         </div>
-        <span class="text-sm text-slate-600">Masquer les chiffres</span>
+        <span class="text-sm text-slate-600 dark:text-slate-300">Masquer les chiffres</span>
       </label>
       <div class="flex gap-2">
         <button id="saveSettings"
-          class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-xl font-semibold">
+          class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-semibold select-none">
           Sauvegarder
         </button>
         <button id="closeSettings"
-          class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl font-semibold">
+          class="flex-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600
+                 text-slate-600 dark:text-slate-300 py-3 rounded-xl font-semibold select-none">
           Fermer
         </button>
       </div>
@@ -146,104 +210,122 @@
     let hideNumbers = localStorage.getItem('clockHideNumbers') === 'true';
     let score       = 0;
     let bestScore   = parseInt(localStorage.getItem('clockBestScore') ?? '0', 10);
+    let darkMode    = localStorage.getItem('clockDark') === 'true';
 
+    let roundStartTime = 0;
+    let sessionTimes   = [];
+    let bestAvgMs      = parseInt(localStorage.getItem('clockBestAvg') ?? '0', 10);
+
+    function formatTime(ms) {
+      if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+      return Math.floor(ms / 60000) + 'm' + String(Math.floor((ms % 60000) / 1000)).padStart(2, '0') + 's';
+    }
+
+    // ── Score ───────────────────────────────────────────────────────────────
     function updateScoreUI() {
       document.getElementById('scoreDisplay').textContent = score;
       document.getElementById('bestDisplay').textContent  = bestScore;
     }
 
-    // ── Utilitaires géométrie ───────────────────────────────────────────────
+    function updateTimerUI() {
+      const avg = Math.round(sessionTimes.reduce((a, b) => a + b, 0) / sessionTimes.length);
+      document.getElementById('avgDisplay').textContent     = formatTime(avg);
+      document.getElementById('bestAvgDisplay').textContent = bestAvgMs > 0 ? formatTime(bestAvgMs) : '—';
+    }
+
+    // ── Dark mode ───────────────────────────────────────────────────────────
+    function applyDark() {
+      document.documentElement.classList.toggle('dark', darkMode);
+      document.getElementById('darkBtn').textContent   = darkMode ? '☀️' : '🌙';
+      document.getElementById('themeColor').content    = darkMode ? '#0f172a' : '#f1f5f9';
+    }
+
+    document.getElementById('darkBtn').addEventListener('click', () => {
+      darkMode = !darkMode;
+      localStorage.setItem('clockDark', darkMode);
+      applyDark();
+    });
+
+    // ── Géométrie ───────────────────────────────────────────────────────────
     function clockAngleToXY(angleDeg, radius) {
       const rad = (angleDeg - 90) * Math.PI / 180;
       return { x: CX + Math.cos(rad) * radius, y: CY + Math.sin(rad) * radius };
     }
 
-    // ── Dessin du cadran ────────────────────────────────────────────────────
+    // ── Cadran ──────────────────────────────────────────────────────────────
     function drawFace() {
       const NS = 'http://www.w3.org/2000/svg';
       const g  = document.getElementById('clock-marks');
       g.innerHTML = '';
 
-      // Traits de minutes
       for (let i = 0; i < 60; i++) {
         const angle  = i * 6;
         const isHour = i % 5 === 0;
-        const outer  = 100;
-        const inner  = isHour ? 88 : 95;
-        const p1 = clockAngleToXY(angle, inner);
-        const p2 = clockAngleToXY(angle, outer);
+        const p1 = clockAngleToXY(angle, isHour ? 88 : 95);
+        const p2 = clockAngleToXY(angle, 100);
         const line = document.createElementNS(NS, 'line');
         line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
         line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
-        line.setAttribute('stroke',       isHour ? '#94a3b8' : '#cbd5e1');
-        line.setAttribute('stroke-width', isHour ? '2.5'    : '1');
+        line.setAttribute('stroke',       isHour ? 'var(--clock-mark-h)' : 'var(--clock-mark-m)');
+        line.setAttribute('stroke-width', isHour ? '2.5' : '1');
         g.appendChild(line);
       }
 
-      // Chiffres 1–12
       if (hideNumbers) return;
       for (let n = 1; n <= 12; n++) {
-        const angle = n * 30;
-        const pos   = clockAngleToXY(angle, 76);
-        const text  = document.createElementNS(NS, 'text');
-        text.setAttribute('x',                  pos.x);
-        text.setAttribute('y',                  pos.y);
-        text.setAttribute('text-anchor',         'middle');
-        text.setAttribute('dominant-baseline',   'central');
-        text.setAttribute('font-size',           '15');
-        text.setAttribute('font-weight',         'bold');
-        text.setAttribute('font-family',         'system-ui, sans-serif');
-        text.setAttribute('fill',                '#334155');
+        const pos  = clockAngleToXY(n * 30, 76);
+        const text = document.createElementNS(NS, 'text');
+        text.setAttribute('x',                pos.x);
+        text.setAttribute('y',                pos.y);
+        text.setAttribute('text-anchor',      'middle');
+        text.setAttribute('dominant-baseline','central');
+        text.setAttribute('font-size',        '15');
+        text.setAttribute('font-weight',      'bold');
+        text.setAttribute('font-family',      'system-ui, sans-serif');
+        text.setAttribute('fill',             'var(--clock-num)');
         text.textContent = n;
         g.appendChild(text);
       }
     }
 
-    // ── Badge AM / PM ───────────────────────────────────────────────────────
+    // ── Badge AM/PM ─────────────────────────────────────────────────────────
     function updateAmPm(h) {
       const isPm = h >= 12;
       document.getElementById('ampm-label').textContent = isPm ? 'PM' : 'AM';
-      document.getElementById('ampm-bg').setAttribute('fill', isPm ? '#fde68a' : '#bfdbfe');
+      document.getElementById('ampm-bg').setAttribute('fill',    isPm ? '#fde68a' : '#bfdbfe');
       document.getElementById('ampm-label').setAttribute('fill', isPm ? '#92400e' : '#1d4ed8');
     }
 
-    // ── Mise à jour des aiguilles ───────────────────────────────────────────
+    // ── Aiguilles ───────────────────────────────────────────────────────────
     function updateHands(h, m) {
-      const hourAngle   = (h % 12 + m / 60) * 30;
-      const minuteAngle = m * 6;
-
-      const hp = clockAngleToXY(hourAngle,   58);
-      const mp = clockAngleToXY(minuteAngle, 84);
-
+      const hp = clockAngleToXY((h % 12 + m / 60) * 30, 58);
+      const mp = clockAngleToXY(m * 6, 84);
       const hh = document.getElementById('hour-hand');
       hh.setAttribute('x2', hp.x); hh.setAttribute('y2', hp.y);
-
       const mh = document.getElementById('minute-hand');
       mh.setAttribute('x2', mp.x); mh.setAttribute('y2', mp.y);
-
       updateAmPm(h);
     }
 
-    // ── Nouvelle heure aléatoire ────────────────────────────────────────────
+    // ── Nouveau tour ────────────────────────────────────────────────────────
     function newRound() {
       currentHour   = Math.floor(Math.random() * 24);
       currentMinute = Math.floor(Math.random() * 60);
       updateHands(currentHour, currentMinute);
 
-      document.getElementById('inputHours').value   = '';
-      document.getElementById('inputMinutes').value = '';
-      document.getElementById('inputHours').disabled   = false;
-      document.getElementById('inputMinutes').disabled = false;
-      document.getElementById('inputHours').classList.remove('opacity-50');
-      document.getElementById('inputMinutes').classList.remove('opacity-50');
+      ['inputHours', 'inputMinutes'].forEach(id => {
+        const el = document.getElementById(id);
+        el.value = '';
+        el.disabled = false;
+        el.classList.remove('opacity-50');
+      });
 
-      const result = document.getElementById('result');
-      result.className = 'hidden';
-      result.textContent = '';
-
+      document.getElementById('result').className = 'hidden';
+      document.getElementById('result').textContent = '';
       document.getElementById('validateBtn').classList.remove('hidden');
       document.getElementById('nextBtn').classList.add('hidden');
 
+      roundStartTime = Date.now();
       if (!('ontouchstart' in window)) document.getElementById('inputHours').focus();
     }
 
@@ -251,85 +333,75 @@
     function validate() {
       const rawH = document.getElementById('inputHours').value.trim();
       const rawM = document.getElementById('inputMinutes').value.trim();
-
       if (rawH === '' || rawM === '') return;
 
       const inputH = parseInt(rawH, 10);
       const inputM = parseInt(rawM, 10);
-
       if (isNaN(inputH) || isNaN(inputM)) return;
       if (inputH < 0 || inputH > 23) return;
       if (inputM < 0 || inputM > 59) return;
 
-      // Différence en minutes sur 24h (1440 min), avec passage à minuit
+      sessionTimes.push(Date.now() - roundStartTime);
+      const sessionAvg = Math.round(sessionTimes.reduce((a, b) => a + b, 0) / sessionTimes.length);
+
       const correctTotal = currentHour * 60 + currentMinute;
       const inputTotal   = inputH      * 60 + inputM;
       let diff = Math.abs(correctTotal - inputTotal);
       diff = Math.min(diff, 1440 - diff);
 
-      const correctStr =
-        `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
-
+      const correctStr = `${String(currentHour).padStart(2,'0')}:${String(currentMinute).padStart(2,'0')}`;
       const result = document.getElementById('result');
       result.classList.remove('hidden');
 
       if (diff === 0) {
         score++;
-        if (score > bestScore) {
-          bestScore = score;
-          localStorage.setItem('clockBestScore', bestScore);
-        }
+        if (score > bestScore) { bestScore = score; localStorage.setItem('clockBestScore', bestScore); }
         updateScoreUI();
-        result.className =
-          'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-green-100 text-green-700';
+        if (bestAvgMs === 0 || sessionAvg < bestAvgMs) { bestAvgMs = sessionAvg; localStorage.setItem('clockBestAvg', bestAvgMs); }
+        updateTimerUI();
+        result.className = 'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300';
         result.textContent = '✓ Exact !';
       } else if (diff <= tolerance) {
         score++;
-        if (score > bestScore) {
-          bestScore = score;
-          localStorage.setItem('clockBestScore', bestScore);
-        }
+        if (score > bestScore) { bestScore = score; localStorage.setItem('clockBestScore', bestScore); }
         updateScoreUI();
-        result.className =
-          'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-yellow-100 text-yellow-700';
+        if (bestAvgMs === 0 || sessionAvg < bestAvgMs) { bestAvgMs = sessionAvg; localStorage.setItem('clockBestAvg', bestAvgMs); }
+        updateTimerUI();
+        result.className = 'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300';
         result.textContent = `Presque ! Il était ${correctStr}`;
       } else {
+        if (bestAvgMs === 0 || sessionAvg < bestAvgMs) { bestAvgMs = sessionAvg; localStorage.setItem('clockBestAvg', bestAvgMs); }
+        sessionTimes = [];
         score = 0;
         updateScoreUI();
-        result.className =
-          'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-red-100 text-red-700';
+        document.getElementById('avgDisplay').textContent     = '—';
+        document.getElementById('bestAvgDisplay').textContent = bestAvgMs > 0 ? formatTime(bestAvgMs) : '—';
+        result.className = 'text-center font-semibold rounded-xl p-3 mb-4 text-base bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300';
         result.textContent = `Raté ! Il était ${correctStr}`;
       }
 
-      document.getElementById('inputHours').disabled   = true;
-      document.getElementById('inputMinutes').disabled = true;
-      document.getElementById('inputHours').classList.add('opacity-50');
-      document.getElementById('inputMinutes').classList.add('opacity-50');
+      ['inputHours', 'inputMinutes'].forEach(id => {
+        const el = document.getElementById(id);
+        el.disabled = true;
+        el.classList.add('opacity-50');
+      });
       document.getElementById('validateBtn').classList.add('hidden');
       document.getElementById('nextBtn').classList.remove('hidden');
+    }
+
+    // ── Toggle masquer chiffres ──────────────────────────────────────────────
+    function applyToggleUI() {
+      document.getElementById('toggleTrack').classList.toggle('tog-on', hideNumbers);
+      document.getElementById('toggleThumb').style.transform = hideNumbers ? 'translateX(16px)' : 'translateX(0)';
     }
 
     // ── Événements ──────────────────────────────────────────────────────────
     document.getElementById('validateBtn').addEventListener('click', validate);
     document.getElementById('nextBtn').addEventListener('click', newRound);
 
-    ['inputHours', 'inputMinutes'].forEach(id => {
-      document.getElementById(id).addEventListener('keydown', e => {
-        if (e.key === 'Enter') validate();
-      });
-    });
-
-    function applyToggleUI() {
-      const track = document.getElementById('toggleTrack');
-      const thumb = document.getElementById('toggleThumb');
-      if (hideNumbers) {
-        track.classList.replace('bg-slate-200', 'bg-blue-500');
-        thumb.style.transform = 'translateX(16px)';
-      } else {
-        track.classList.replace('bg-blue-500', 'bg-slate-200');
-        thumb.style.transform = 'translateX(0)';
-      }
-    }
+    ['inputHours', 'inputMinutes'].forEach(id =>
+      document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') validate(); })
+    );
 
     document.getElementById('toggleTrack').addEventListener('click', () => {
       hideNumbers = !hideNumbers;
@@ -342,9 +414,9 @@
       document.getElementById('settingsModal').classList.remove('hidden');
     });
 
-    document.getElementById('closeSettings').addEventListener('click', () => {
-      document.getElementById('settingsModal').classList.add('hidden');
-    });
+    document.getElementById('closeSettings').addEventListener('click', () =>
+      document.getElementById('settingsModal').classList.add('hidden')
+    );
 
     document.getElementById('settingsModal').addEventListener('click', e => {
       if (e.target === document.getElementById('settingsModal'))
@@ -353,17 +425,16 @@
 
     document.getElementById('saveSettings').addEventListener('click', () => {
       const v = parseInt(document.getElementById('toleranceInput').value, 10);
-      if (!isNaN(v) && v >= 0) {
-        tolerance = v;
-        localStorage.setItem('clockTolerance', tolerance);
-      }
+      if (!isNaN(v) && v >= 0) { tolerance = v; localStorage.setItem('clockTolerance', tolerance); }
       localStorage.setItem('clockHideNumbers', hideNumbers);
       drawFace();
       document.getElementById('settingsModal').classList.add('hidden');
     });
 
     // ── Init ────────────────────────────────────────────────────────────────
+    applyDark();
     updateScoreUI();
+    if (bestAvgMs > 0) document.getElementById('bestAvgDisplay').textContent = formatTime(bestAvgMs);
     drawFace();
     newRound();
   </script>
