@@ -2,13 +2,29 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#f1f5f9" />
   <title>Lire l'heure</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Clavier numérique sans spinners */
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+    /* Supprime le flash de tap sur iOS */
+    button, label { -webkit-tap-highlight-color: transparent; }
+    /* Safe area pour l'encoche et la barre home iPhone */
+    body {
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+      padding-left:   env(safe-area-inset-left);
+      padding-right:  env(safe-area-inset-right);
+    }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+<body class="bg-slate-100 min-h-[100dvh] flex flex-col items-center justify-center p-3 sm:p-4">
 
-  <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xs">
+  <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 w-full max-w-sm">
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
@@ -32,7 +48,7 @@
 
     <!-- Horloge SVG -->
     <div class="flex justify-center mb-6">
-      <svg id="clock" width="220" height="220" viewBox="0 0 220 220">
+      <svg id="clock" viewBox="0 0 220 220" class="w-full max-w-[260px]">
         <!-- Cadran -->
         <circle cx="110" cy="110" r="105" fill="#f8fafc" stroke="#e2e8f0" stroke-width="4"/>
         <!-- Marqueurs et chiffres (injectés par JS) -->
@@ -55,16 +71,16 @@
     <div class="flex items-end gap-3 justify-center mb-4">
       <div class="flex flex-col items-center gap-1">
         <label class="text-xs font-medium text-slate-500">Heures (0–23)</label>
-        <input id="inputHours" type="number" min="0" max="23"
-          class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-2
+        <input id="inputHours" type="number" min="0" max="23" inputmode="numeric"
+          class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-3
                  focus:outline-none focus:border-blue-400 transition-colors"
           placeholder="--" />
       </div>
       <span class="text-3xl font-bold text-slate-300 pb-2">:</span>
       <div class="flex flex-col items-center gap-1">
         <label class="text-xs font-medium text-slate-500">Minutes</label>
-        <input id="inputMinutes" type="number" min="0" max="59"
-          class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-2
+        <input id="inputMinutes" type="number" min="0" max="59" inputmode="numeric"
+          class="w-20 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl p-3
                  focus:outline-none focus:border-blue-400 transition-colors"
           placeholder="--" />
       </div>
@@ -77,12 +93,12 @@
     <div class="flex gap-3">
       <button id="validateBtn"
         class="flex-1 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-semibold
-               py-3 rounded-xl transition-colors">
+               py-4 rounded-xl transition-colors text-lg select-none">
         Valider
       </button>
       <button id="nextBtn"
         class="hidden flex-1 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white
-               font-semibold py-3 rounded-xl transition-colors">
+               font-semibold py-4 rounded-xl transition-colors text-lg select-none">
         Suivant →
       </button>
     </div>
@@ -97,8 +113,8 @@
       <label class="block text-sm text-slate-600 mb-1">
         Tolérance (minutes pour réponse en jaune)
       </label>
-      <input id="toleranceInput" type="number" min="0" max="30"
-        class="w-full border-2 border-slate-200 rounded-xl p-2 text-center text-xl font-bold
+      <input id="toleranceInput" type="number" min="0" max="30" inputmode="numeric"
+        class="w-full border-2 border-slate-200 rounded-xl p-3 text-center text-xl font-bold
                focus:outline-none focus:border-blue-400 mb-4" />
       <label class="flex items-center gap-3 cursor-pointer mb-5 select-none">
         <div id="toggleTrack"
@@ -228,7 +244,7 @@
       document.getElementById('validateBtn').classList.remove('hidden');
       document.getElementById('nextBtn').classList.add('hidden');
 
-      document.getElementById('inputHours').focus();
+      if (!('ontouchstart' in window)) document.getElementById('inputHours').focus();
     }
 
     // ── Validation ──────────────────────────────────────────────────────────
